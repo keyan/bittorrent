@@ -7,6 +7,12 @@ import (
 	"github.com/keyan/bittorrent/bencode"
 )
 
+const (
+	TRACKER_STARTED_EVENT   = "started"
+	TRACKER_COMPLETED_EVENT = "completed"
+	TRACKER_STOPPED_EVENT   = "stopped"
+)
+
 /*
 all integers in the peer wire protocol are encoded as four byte big-endian values. This includes the length prefix on all messages that come after the handshake.
 */
@@ -18,12 +24,6 @@ type ClientConnection struct {
 	peerInterested bool
 }
 
-const (
-	TRACKER_STARTED_EVENT   = "started"
-	TRACKER_COMPLETED_EVENT = "completed"
-	TRACKER_STOPPED_EVENT   = "stopped"
-)
-
 type TrackerRequest struct {
 	info_hash  string
 	peer_id    string
@@ -34,6 +34,10 @@ type TrackerRequest struct {
 	compact    int
 	no_peer_id bool
 	event      int
+}
+
+type Tracker struct {
+	url string
 }
 
 func check(e error) {
