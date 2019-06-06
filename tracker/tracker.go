@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/keyan/bittorrent/bencode"
-	"github.com/keyan/bittorrent/types"
+	"github.com/google/go-querystring/query"
+
+	"github.com/keyan/bittorrent/peers"
 )
 
 const (
@@ -18,36 +19,43 @@ const (
 type Tracker struct {
 	url               string
 	hasBeenContacted  bool
-	nextAnnounceAfter int
+	nextAnnounceAfter int64
 }
 
-type Request struct {
-	info_hash  string
-	peer_id    string
-	port       int //6881
-	uploaded   string
-	downloaded string
-	left       string
-	compact    int
-	no_peer_id bool
-	event      int
+type RequestParams struct {
+	InfoHash   string `url:"info_hash"`
+	PeerID     string `url:"peer_id"`
+	Port       int    `url:"port"`
+	Uploaded   string `url:"uploaded"`
+	Downloaded string `url:"downloaded"`
+	Left       string `url:"left"`
+	Compact    int    `url:"compact"`
+	NoPeerID   bool   `url:"no_peer_id"`
+	Event      int    `url:"event"`
 }
 
 type Response struct {
-	Peers    []types.Peer
+	Peers    []peers.Peer
 	Seeders  int
 	Leechers int
 }
 
-func (t *Tracker) GetRequest(Request) (*Response, error) {
+func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	if t.nextAnnounceAfter > time.Now().Unix() {
 		return nil, errors.New("cannot contact tracker yet")
 	}
 
-	resp, err := http.Get(t.url)
+	if !t.hasBeenContacted {
+		rp.event = TRACKER_STARTED_EVENT
+	}
+
+	v, _ := query.Values(rp)
+	_, err := http.Get(t.url + "?" + v)
 	if err != nil {
 		return nil, err
 	}
+
+	t.hasBeenContacted = true
 
 	r := Response{}
 

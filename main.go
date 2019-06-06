@@ -5,39 +5,34 @@ import (
 	"os"
 
 	"github.com/keyan/bittorrent/bencode"
+	"github.com/keyan/bittorrent/tracker"
 )
 
-const (
-	TRACKER_STARTED_EVENT   = "started"
-	TRACKER_COMPLETED_EVENT = "completed"
-	TRACKER_STOPPED_EVENT   = "stopped"
-)
-
-/*
-all integers in the peer wire protocol are encoded as four byte big-endian values. This includes the length prefix on all messages that come after the handshake.
-*/
-
-type ClientConnection struct {
-	amChoking      bool
-	amInterested   bool
-	peerChoking    bool
-	peerInterested bool
+type Torrent struct {
+	name           string
+	trackerUrl     string
+	piecesHash     string
+	bytesPerPiece  uint64
+	data           []byte
+	piecesAcquired uint64
+	piecesLeft     uint64
 }
 
-type TrackerRequest struct {
-	info_hash  string
-	peer_id    string
-	port       int //6881
-	uploaded   string
-	downloaded string
-	left       string
-	compact    int
-	no_peer_id bool
-	event      int
-}
+func (t *Torrent) RunTorrent() {
+	trk := tracker.New(torrent.trackerUrl)
+	p := tracker.RequestParams{
+		InfoHash:   nil,
+		PeerID:     nil,
+		Port:       nil,
+		Uploaded:   nil,
+		Downloaded: nil,
+		Left:       t.piecesLeft,
+		Compact:    0,
+		NoPeerID:   1,
+	}
 
-type Tracker struct {
-	url string
+	resp, err := trk.GetRequest(p)
+	fmt.Println(resp)
 }
 
 func check(e error) {
@@ -46,17 +41,20 @@ func check(e error) {
 	}
 }
 
-func openConnection() (*ClientConnection, error) {
-	// Choked and not-interested
-	return ClientConnection{1, 0, 1, 0}
-}
-
 func main() {
-	f, err := os.Open("example.torrent")
+	f, err := os.Open("torrents/example.torrent")
 	check(err)
 
 	metainfo, err := bencode.Decode(f)
 	check(err)
 
-	fmt.Println(metainfo)
+	infoMap := metainfo["info"].(map[string]interface{})
+
+	torrent := Torrent{
+		name:          metainfo["title"].(string),
+		trackerUrl:    metainfo["announce"].(string),
+		piecesHash:    infoMap["pieces"].(string),
+		bytesPerPiece: infoMap["piece length"].(uint64),
+	}
+	torrent.RunTorrent()
 }
