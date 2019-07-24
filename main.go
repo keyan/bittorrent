@@ -19,19 +19,17 @@ type Torrent struct {
 }
 
 func (t *Torrent) RunTorrent() {
-	trk := tracker.New(torrent.trackerUrl)
+	trk := tracker.New(t.trackerUrl)
 	p := tracker.RequestParams{
-		InfoHash:   nil,
-		PeerID:     nil,
-		Port:       nil,
-		Uploaded:   nil,
-		Downloaded: nil,
-		Left:       t.piecesLeft,
-		Compact:    0,
-		NoPeerID:   1,
+		Left:     t.piecesLeft,
+		Compact:  0,
+		NoPeerID: true,
 	}
 
 	resp, err := trk.GetRequest(p)
+	if err != nil {
+		fmt.Println("request failed")
+	}
 	fmt.Println(resp)
 }
 
@@ -42,7 +40,7 @@ func check(e error) {
 }
 
 func main() {
-	f, err := os.Open("torrents/example.torrent")
+	f, err := os.Open("torrents/flagfromserver.torrent")
 	check(err)
 
 	metainfo, err := bencode.Decode(f)
@@ -51,7 +49,7 @@ func main() {
 	infoMap := metainfo["info"].(map[string]interface{})
 
 	torrent := Torrent{
-		name:          metainfo["title"].(string),
+		// name:          metainfo["title"].(string),
 		trackerUrl:    metainfo["announce"].(string),
 		piecesHash:    infoMap["pieces"].(string),
 		bytesPerPiece: infoMap["piece length"].(uint64),

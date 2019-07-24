@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -26,12 +27,12 @@ type RequestParams struct {
 	InfoHash   string `url:"info_hash"`
 	PeerID     string `url:"peer_id"`
 	Port       int    `url:"port"`
-	Uploaded   string `url:"uploaded"`
-	Downloaded string `url:"downloaded"`
-	Left       string `url:"left"`
+	Uploaded   uint64 `url:"uploaded"`
+	Downloaded uint64 `url:"downloaded"`
+	Left       uint64 `url:"left"`
 	Compact    int    `url:"compact"`
 	NoPeerID   bool   `url:"no_peer_id"`
-	Event      int    `url:"event"`
+	Event      string `url:"event"`
 }
 
 type Response struct {
@@ -46,16 +47,22 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	}
 
 	if !t.hasBeenContacted {
-		rp.event = TRACKER_STARTED_EVENT
+		rp.Event = TRACKER_STARTED_EVENT
+		t.hasBeenContacted = true
 	}
 
 	v, _ := query.Values(rp)
-	_, err := http.Get(t.url + "?" + v)
+	resp, err := http.Get(t.url + "?" + v.Encode())
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
-	t.hasBeenContacted = true
+	fmt.Println(resp)
+
+	if resp.StatusCode != 200 {
+		return nil, errors.New("Received non-success response")
+	}
 
 	r := Response{}
 
