@@ -1,12 +1,13 @@
-package peers
+package peer
 
 import (
 	"errors"
+	"net"
 )
 
 type Peer struct {
 	ID         string
-	IP         string
+	IP         net.IP
 	Port       int
 	Connection *PeerConnection
 }

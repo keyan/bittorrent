@@ -1,37 +1,15 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/keyan/bittorrent/bencode"
+	"github.com/keyan/bittorrent/client"
+	"github.com/keyan/bittorrent/torrent"
 	"github.com/keyan/bittorrent/tracker"
 )
-
-type Torrent struct {
-	name           string
-	trackerUrl     string
-	piecesHash     string
-	bytesPerPiece  uint64
-	data           []byte
-	piecesAcquired uint64
-	piecesLeft     uint64
-}
-
-func (t *Torrent) RunTorrent() {
-	trk := tracker.New(t.trackerUrl)
-	p := tracker.RequestParams{
-		Left:     t.piecesLeft,
-		Compact:  0,
-		NoPeerID: true,
-	}
-
-	resp, err := trk.GetRequest(p)
-	if err != nil {
-		fmt.Println("request failed")
-	}
-	fmt.Println(resp)
-}
 
 func check(e error) {
 	if e != nil {
@@ -40,19 +18,32 @@ func check(e error) {
 }
 
 func main() {
-	f, err := os.Open("torrents/flagfromserver.torrent")
+	torrentFile := flag.String(
+		"torrentFile", "example_data/debian.torrent", "The torrent to download")
+	f, err := os.Open(*torrentFile)
 	check(err)
 
+	// Decode the torrent file to get the "Metainfo" map.
 	metainfo, err := bencode.Decode(f)
 	check(err)
 
-	infoMap := metainfo["info"].(map[string]interface{})
+	// Abstract metainfo parsing, get a more useful struct that
+	// has all the data we need.
+	torrent, err := torrent.NewFromRawMetainfo(metainfo)
+	check(err)
 
-	torrent := Torrent{
-		// name:          metainfo["title"].(string),
-		trackerUrl:    metainfo["announce"].(string),
-		piecesHash:    infoMap["pieces"].(string),
-		bytesPerPiece: infoMap["piece length"].(uint64),
-	}
-	torrent.RunTorrent()
+	tracker, err := tracker.New(torrent.TrackerUrl)
+	check(err)
+
+	client, err := client.New(torrent, tracker)
+	check(err)
+
+	fmt.Printf(
+		"Starting download for file: %s, total pieces: %d\n",
+		torrent.Name, torrent.PiecesLeft)
+
+	err = client.Download()
+	check(err)
+
+	fmt.Printf("Downloaded file %s\n", torrent.Name)
 }

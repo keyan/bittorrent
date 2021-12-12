@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-querystring/query"
 
-	"github.com/keyan/bittorrent/peers"
+	"github.com/keyan/bittorrent/peer"
 )
 
 const (
@@ -36,7 +36,7 @@ type RequestParams struct {
 }
 
 type Response struct {
-	Peers    []peers.Peer
+	Peers    []peer.Peer
 	Seeders  int
 	Leechers int
 }
@@ -69,10 +69,10 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	return &r, nil
 }
 
-func New(url string) *Tracker {
+func New(url string) (*Tracker, error) {
 	return &Tracker{
 		url:               url,
 		hasBeenContacted:  false,
 		nextAnnounceAfter: 0,
-	}
+	}, nil
 }

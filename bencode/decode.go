@@ -120,7 +120,7 @@ func Decode(reader io.Reader) (dictionary, error) {
 	if err != nil {
 		return make(dictionary), nil
 	} else if firstByte != 'd' {
-		return nil, errors.New("becode data must begin with a dictionary")
+		return nil, errors.New("bencode data must begin with a dictionary")
 	}
 
 	dict, err := d.readDictionary()
