@@ -2,8 +2,9 @@ package torrent
 
 import (
 	"crypto/sha1"
+	"encoding/base64"
 
-	"github.com/keyan/bittorrent/bencode"
+	"github.com/zeebo/bencode"
 )
 
 // Torrent is a utility type that abstracts the contents of the raw
@@ -18,18 +19,28 @@ type Torrent struct {
 	PiecesLeft     uint64
 }
 
-// NewFromRawMetainfo converts the raw metainfo map to a more useful
+// NewFromRawBytes converts the raw torrent data from file bytes to an
 // internal Torrent type.
-func NewFromRawMetainfo(metainfo map[string]interface{}) (*Torrent, error) {
+func NewFromRawBytes(fileBytes []byte) (*Torrent, error) {
+	// Decode the torrent file to get the "Metainfo" map.
+	var metainfo map[string]interface{}
+	err := bencode.DecodeBytes(fileBytes, &metainfo)
+	if err != nil {
+		return nil, err
+	}
+
 	infoMap := metainfo["info"].(map[string]interface{})
 
 	// InfoHash is used to set to the tracker, it must be the SHA1 hash of
 	// the original bencoded 'info' dictionary value.
-	bencodedInfo, err := bencode.Encode(infoMap)
+	bencodedInfo, err := bencode.EncodeBytes(infoMap)
 	if err != nil {
 		return nil, err
 	}
-	infoHash := h.Sum(bencodedInfo)
+	infoHashRaw := sha1.Sum(bencodedInfo)
+	// TODO - Might need to switch away from base64 encoding if Tracker
+	// won't understand this.
+	infoHash := base64.URLEncoding.EncodeToString(infoHashRaw[:])
 
 	// A string whose length is a multiple of 20. It is to be
 	// subdivided into strings of length 20, each of which is the
@@ -45,7 +56,7 @@ func NewFromRawMetainfo(metainfo map[string]interface{}) (*Torrent, error) {
 		TrackerUrl:     metainfo["announce"].(string),
 		InfoHash:       infoHash,
 		PiecesToHash:   pieceMap,
-		BytesPerPiece:  infoMap["piece length"].(uint64),
+		BytesPerPiece:  uint64(infoMap["piece length"].(int64)),
 		PiecesAcquired: 0,
 		PiecesLeft:     uint64(len(pieceMap)),
 	}

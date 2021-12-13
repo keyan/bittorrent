@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/keyan/bittorrent/bencode"
 	"github.com/keyan/bittorrent/client"
 	"github.com/keyan/bittorrent/torrent"
 	"github.com/keyan/bittorrent/tracker"
@@ -20,16 +19,12 @@ func check(e error) {
 func main() {
 	torrentFile := flag.String(
 		"torrentFile", "example_data/debian.torrent", "The torrent to download")
-	f, err := os.Open(*torrentFile)
-	check(err)
-
-	// Decode the torrent file to get the "Metainfo" map.
-	metainfo, err := bencode.Decode(f)
+	fileBytes, err := os.ReadFile(*torrentFile)
 	check(err)
 
 	// Abstract metainfo parsing, get a more useful struct that
 	// has all the data we need.
-	torrent, err := torrent.NewFromRawMetainfo(metainfo)
+	torrent, err := torrent.NewFromRawBytes(fileBytes)
 	check(err)
 
 	tracker, err := tracker.New(torrent.TrackerUrl)

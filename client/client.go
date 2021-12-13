@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -33,22 +34,24 @@ type Client struct {
 // collect an updated peers list.
 func (cl *Client) trackerLoop() {
 	// Tick immediately at first.
-	tickDuration := 0 * time.Second
+	tickDuration := 1 * time.Millisecond
 	ticker := time.NewTicker(tickDuration)
 
 	for {
 		select {
-		case t := <-ticker.C:
-			rp := tracker.Request{
-				InfoHash: torrent.InfoHash,
-				PeerID:   url.QueryEscape(cl.peerID),
-				Port:     cl.listenPort,
+		case <-ticker.C:
+			rp := tracker.RequestParams{
+				// InfoHash: torrent.InfoHash,
+				PeerID: url.QueryEscape(cl.peerID),
+				Port:   cl.listenPort,
 			}
 			resp, err := cl.tracker.GetRequest(rp)
 			if err != nil {
 				fmt.Println("Got error when pinging tracker: %v", err)
 			}
-			// Reset so next tick respects what the Tracker instructed.
+			fmt.Println(resp)
+			// TODO: Reset so next tick respects what the Tracker instructed.
+			tickDuration = 1 * time.Second
 			ticker.Reset(tickDuration)
 		}
 	}
@@ -73,7 +76,7 @@ func (cl *Client) Start() error {
 func New(tor *torrent.Torrent, trk *tracker.Tracker) (*Client, error) {
 	// Some unique 20 char sequence to identify this Client.
 	randBytes := make([]byte, 20)
-	n, err := math.Read(randBytes)
+	n, err := rand.Read(randBytes)
 	if n != 20 || err != nil {
 		return nil, errors.New("Couldn't generate peerID, this shouldn't happen")
 	}
