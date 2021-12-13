@@ -19,6 +19,7 @@ func check(e error) {
 func main() {
 	torrentFile := flag.String(
 		"torrentFile", "example_data/debian.torrent", "The torrent to download")
+
 	fileBytes, err := os.ReadFile(*torrentFile)
 	check(err)
 

@@ -52,6 +52,10 @@ func (cl *Client) trackerLoop() {
 				fmt.Println("Client: got error when pinging tracker")
 			}
 
+			fmt.Printf(
+				"Client: received %d peers from tracker\n",
+				len(resp.Peers))
+
 			// Reset so next tick respects what the Tracker instructed
 			tickDuration = time.Duration(resp.IntervalSecs) * time.Second
 			ticker.Reset(tickDuration)

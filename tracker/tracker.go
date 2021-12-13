@@ -12,7 +12,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/google/go-querystring/query"
 	"github.com/zeebo/bencode"
@@ -27,9 +26,8 @@ const (
 )
 
 type Tracker struct {
-	url               string
-	hasBeenContacted  bool
-	nextAnnounceAfter int64
+	url              string
+	hasBeenContacted bool
 }
 
 type RequestParams struct {
@@ -52,11 +50,11 @@ type Response struct {
 
 // trackerResponse is used for deserializing the raw text tracker response
 // from bencode.
-type trackerResponse struct {
-	// failureReason string `bencode:"failure reason"`
+type TrackerResponse struct {
+	FailureReason string `bencode:"failure reason"`
 	// Raw bytes for the peer data, needs to be decoded
-	peers        string `bencode:"peers"`
-	intervalSecs int64  `bencode:"interval"`
+	Peers        string `bencode:"peers"`
+	IntervalSecs int64  `bencode:"interval"`
 }
 
 // peersFromRawBytes converts the raw tracker `peers` data to a slice of
@@ -70,7 +68,7 @@ func peersFromRawBytes(rawPeers []byte) []peer.Peer {
 	for i := 0; i < len(rawPeers); i = i + 6 {
 		ip := net.IPv4(rawPeers[i], rawPeers[i+1], rawPeers[i+2], rawPeers[i+3])
 
-		var port int16
+		var port uint16
 		buf := bytes.NewReader(rawPeers[i+4 : i+6])
 		err := binary.Read(buf, binary.BigEndian, &port)
 		if err != nil {
@@ -79,7 +77,6 @@ func peersFromRawBytes(rawPeers []byte) []peer.Peer {
 		}
 
 		peerList = append(peerList, peer.Peer{IP: ip, Port: port})
-		fmt.Println(peerList[len(peerList)-1])
 	}
 
 	return peerList
@@ -89,10 +86,6 @@ func peersFromRawBytes(rawPeers []byte) []peer.Peer {
 // a list of active Peers that should be used to download the remaining
 // pieces.
 func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
-	if t.nextAnnounceAfter > time.Now().Unix() {
-		return nil, errors.New("cannot contact tracker yet")
-	}
-
 	if !t.hasBeenContacted {
 		rp.Event = TRACKER_STARTED_EVENT
 		t.hasBeenContacted = true
@@ -111,19 +104,18 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	// Decode response body
 	defer resp.Body.Close()
 	respData, err := io.ReadAll(resp.Body)
-	var trkResp trackerResponse
+	var trkResp TrackerResponse
 	bencode.DecodeBytes(respData, &trkResp)
-	fmt.Println(trkResp)
 
 	// This field is only set if the others are not.
-	// if len(trkResp.failureReason) > 0 {
-	// 	return nil, fmt.Errorf(
-	// 		"Tracker: got failure response, %s", trkResp.failureReason)
-	// }
+	if len(trkResp.FailureReason) > 0 {
+		return nil, fmt.Errorf(
+			"Tracker: got failure response, %s", trkResp.FailureReason)
+	}
 
 	r := Response{
-		Peers:        peersFromRawBytes([]byte(trkResp.peers)),
-		IntervalSecs: trkResp.intervalSecs,
+		Peers:        peersFromRawBytes([]byte(trkResp.Peers)),
+		IntervalSecs: trkResp.IntervalSecs,
 	}
 
 	return &r, nil
@@ -131,8 +123,7 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 
 func New(url string) (*Tracker, error) {
 	return &Tracker{
-		url:               url,
-		hasBeenContacted:  false,
-		nextAnnounceAfter: 0,
+		url:              url,
+		hasBeenContacted: false,
 	}, nil
 }

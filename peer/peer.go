@@ -7,7 +7,7 @@ import (
 
 type Peer struct {
 	IP         net.IP
-	Port       int16
+	Port       uint16
 	Connection *PeerConnection
 }
 
