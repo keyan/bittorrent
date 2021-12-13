@@ -5,9 +5,12 @@
 package tracker
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -41,11 +44,50 @@ type RequestParams struct {
 	Event      string `url:"event"`
 }
 
+// Response is the exported type used by callers to access tracker information.
 type Response struct {
 	Peers        []peer.Peer
 	IntervalSecs int64
 }
 
+// trackerResponse is used for deserializing the raw text tracker response
+// from bencode.
+type trackerResponse struct {
+	// failureReason string `bencode:"failure reason"`
+	// Raw bytes for the peer data, needs to be decoded
+	peers        string `bencode:"peers"`
+	intervalSecs int64  `bencode:"interval"`
+}
+
+// peersFromRawBytes converts the raw tracker `peers` data to a slice of
+// internal Peer structs. According to the spec this data is:
+//
+//	a string consisting of multiples of 6 bytes.
+//	First 4 bytes are the IP address and last 2 bytes
+//	are the port number. All in network (big endian) notation.
+func peersFromRawBytes(rawPeers []byte) []peer.Peer {
+	peerList := make([]peer.Peer, 0)
+	for i := 0; i < len(rawPeers); i = i + 6 {
+		ip := net.IPv4(rawPeers[i], rawPeers[i+1], rawPeers[i+2], rawPeers[i+3])
+
+		var port int16
+		buf := bytes.NewReader(rawPeers[i+4 : i+6])
+		err := binary.Read(buf, binary.BigEndian, &port)
+		if err != nil {
+			fmt.Printf("Tracker: got error during peer decoding, %w", err)
+			continue
+		}
+
+		peerList = append(peerList, peer.Peer{IP: ip, Port: port})
+		fmt.Println(peerList[len(peerList)-1])
+	}
+
+	return peerList
+}
+
+// GetRequest pings the tracker specified in the Torrent and collects
+// a list of active Peers that should be used to download the remaining
+// pieces.
 func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	if t.nextAnnounceAfter > time.Now().Unix() {
 		return nil, errors.New("cannot contact tracker yet")
@@ -69,28 +111,19 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	// Decode response body
 	defer resp.Body.Close()
 	respData, err := io.ReadAll(resp.Body)
-	var respMap map[string]interface{}
-	bencode.DecodeBytes(respData, &respMap)
+	var trkResp trackerResponse
+	bencode.DecodeBytes(respData, &trkResp)
+	fmt.Println(trkResp)
 
-	if val, ok := respMap["failure reason"]; ok {
-		return nil, fmt.Errorf(
-			"Tracker: got failure response, %s", val)
-	}
-
-	// TODO the peerslist is not being decoded correctly
-	rawPeers := respMap["peers"].(string)
-	var peersList interface{}
-	bencode.DecodeString(rawPeers, &peersList)
-	fmt.Println(peersList)
-	// peers := make([]peer.Peer, len(peerList))
-	// for p := range peersList {
-	// 	fmt.Println(p)
+	// This field is only set if the others are not.
+	// if len(trkResp.failureReason) > 0 {
+	// 	return nil, fmt.Errorf(
+	// 		"Tracker: got failure response, %s", trkResp.failureReason)
 	// }
-	fmt.Println("Done")
 
 	r := Response{
-		Peers:        nil,
-		IntervalSecs: respMap["interval"].(int64),
+		Peers:        peersFromRawBytes([]byte(trkResp.peers)),
+		IntervalSecs: trkResp.intervalSecs,
 	}
 
 	return &r, nil

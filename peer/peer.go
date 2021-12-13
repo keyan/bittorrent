@@ -6,9 +6,8 @@ import (
 )
 
 type Peer struct {
-	ID         string
 	IP         net.IP
-	Port       int
+	Port       int16
 	Connection *PeerConnection
 }
 
