@@ -1,3 +1,7 @@
+// package Tracker is used to manage a connection to a single Tracker host
+// for a Torrent. A tracker is a single IP which is responsible for providing
+// peer lists to clients and collecting download/upload information about
+// torrents.
 package tracker
 
 import (
