@@ -17,7 +17,13 @@ type Torrent struct {
 	PiecesToHash   map[int]string // Index i has the SHA1 hash for piece i
 	BytesPerPiece  uint64
 	PiecesAcquired uint64
-	PiecesLeft     uint64
+	TotalPieces    uint64
+}
+
+// Piece represents a single BytesPerPiece sized unit of data downloaded from peers.
+type Piece struct {
+	Id   int // The piece number, index into PiecesToHash map
+	Data []byte
 }
 
 // NewFromRawBytes converts the raw torrent data from file bytes to an
@@ -51,13 +57,12 @@ func NewFromRawBytes(fileBytes []byte) (*Torrent, error) {
 	}
 
 	torrent := Torrent{
-		Name:           infoMap["name"].(string),
-		TrackerUrl:     metainfo["announce"].(string),
-		InfoHash:       infoHash,
-		PiecesToHash:   pieceMap,
-		BytesPerPiece:  uint64(infoMap["piece length"].(int64)),
-		PiecesAcquired: 0,
-		PiecesLeft:     uint64(len(pieceMap)),
+		Name:          infoMap["name"].(string),
+		TrackerUrl:    metainfo["announce"].(string),
+		InfoHash:      infoHash,
+		PiecesToHash:  pieceMap,
+		BytesPerPiece: uint64(infoMap["piece length"].(int64)),
+		TotalPieces:   uint64(len(pieceMap)),
 	}
 
 	return &torrent, nil

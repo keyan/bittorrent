@@ -36,7 +36,7 @@ func main() {
 
 	fmt.Printf(
 		"Starting download for file: %s, total pieces: %d\n",
-		torrent.Name, torrent.PiecesLeft)
+		torrent.Name, torrent.TotalPieces)
 
 	err = client.Start()
 	check(err)
