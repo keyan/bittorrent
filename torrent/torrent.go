@@ -2,7 +2,6 @@ package torrent
 
 import (
 	"crypto/sha1"
-	"encoding/base64"
 
 	"github.com/zeebo/bencode"
 )
@@ -10,9 +9,11 @@ import (
 // Torrent is a utility type that abstracts the contents of the raw
 // metainfo data to provide the most useful parts to other functions.
 type Torrent struct {
-	Name           string         // The filename
-	TrackerUrl     string         // The address for the tracker
-	InfoHash       string         // SHA1 hash of the value of the 'info' key in metainfo
+	Name       string // The filename
+	TrackerUrl string // The address for the tracker
+	// SHA1 hash of the value of the 'info' key in metainfo. Not URL encoded
+	// instead the Tracker will do that at request time.
+	InfoHash       string
 	PiecesToHash   map[int]string // Index i has the SHA1 hash for piece i
 	BytesPerPiece  uint64
 	PiecesAcquired uint64
@@ -38,9 +39,7 @@ func NewFromRawBytes(fileBytes []byte) (*Torrent, error) {
 		return nil, err
 	}
 	infoHashRaw := sha1.Sum(bencodedInfo)
-	// TODO - Might need to switch away from base64 encoding if Tracker
-	// won't understand this.
-	infoHash := base64.URLEncoding.EncodeToString(infoHashRaw[:])
+	infoHash := string(infoHashRaw[:])
 
 	// A string whose length is a multiple of 20. It is to be
 	// subdivided into strings of length 20, each of which is the

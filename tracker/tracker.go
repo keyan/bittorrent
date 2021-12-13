@@ -58,6 +58,7 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	v, _ := query.Values(rp)
 	resp, err := http.Get(t.url + "?" + v.Encode())
 	if err != nil {
+		fmt.Println("Tracker: request failed!")
 		fmt.Println(err)
 		return nil, err
 	}
