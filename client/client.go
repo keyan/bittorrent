@@ -40,19 +40,24 @@ func (cl *Client) trackerLoop() {
 	for {
 		select {
 		case <-ticker.C:
+			ticker.Stop()
+
 			rp := tracker.RequestParams{
 				InfoHash: cl.torrent.InfoHash,
 				PeerID:   cl.peerID,
 				Port:     cl.listenPort,
 			}
-			_, err := cl.tracker.GetRequest(rp)
+			resp, err := cl.tracker.GetRequest(rp)
 			if err != nil {
 				fmt.Println("Client: got error when pinging tracker")
 			}
 
-			// TODO: Reset so next tick respects what the Tracker instructed.
-			tickDuration = 1 * time.Second
+			// Reset so next tick respects what the Tracker instructed
+			tickDuration = time.Duration(resp.IntervalSecs) * time.Second
 			ticker.Reset(tickDuration)
+			fmt.Printf(
+				"Client: next tracker request in %d secs\n",
+				resp.IntervalSecs)
 		}
 	}
 }

@@ -7,10 +7,12 @@ package tracker
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/google/go-querystring/query"
+	"github.com/zeebo/bencode"
 
 	"github.com/keyan/bittorrent/peer"
 )
@@ -40,9 +42,8 @@ type RequestParams struct {
 }
 
 type Response struct {
-	Peers    []peer.Peer
-	Seeders  int
-	Leechers int
+	Peers        []peer.Peer
+	IntervalSecs int64
 }
 
 func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
@@ -58,18 +59,39 @@ func (t *Tracker) GetRequest(rp RequestParams) (*Response, error) {
 	v, _ := query.Values(rp)
 	resp, err := http.Get(t.url + "?" + v.Encode())
 	if err != nil {
-		fmt.Println("Tracker: request failed!")
-		fmt.Println(err)
-		return nil, err
+		return nil, fmt.Errorf("Tracker: request failed, %w", err)
+
 	}
-
-	fmt.Println(resp)
-
 	if resp.StatusCode != 200 {
 		return nil, errors.New("Received non-success response")
 	}
 
-	r := Response{}
+	// Decode response body
+	defer resp.Body.Close()
+	respData, err := io.ReadAll(resp.Body)
+	var respMap map[string]interface{}
+	bencode.DecodeBytes(respData, &respMap)
+
+	if val, ok := respMap["failure reason"]; ok {
+		return nil, fmt.Errorf(
+			"Tracker: got failure response, %s", val)
+	}
+
+	// TODO the peerslist is not being decoded correctly
+	rawPeers := respMap["peers"].(string)
+	var peersList interface{}
+	bencode.DecodeString(rawPeers, &peersList)
+	fmt.Println(peersList)
+	// peers := make([]peer.Peer, len(peerList))
+	// for p := range peersList {
+	// 	fmt.Println(p)
+	// }
+	fmt.Println("Done")
+
+	r := Response{
+		Peers:        nil,
+		IntervalSecs: respMap["interval"].(int64),
+	}
 
 	return &r, nil
 }
